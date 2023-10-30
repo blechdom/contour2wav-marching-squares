@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://api.fonts.coollabs.io/css2?family=Raleway:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/normalize.css">
+  <link rel="stylesheet" href="css/skeleton.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="text/javascript" src="data/julia.js"></script>
+  <script src="https://unpkg.com/wavefile"></script>
+</head>
+
+<body>
+
+  <div class="container">
+      <div class="row">
+          <button type="button" class="u-full-width" name="button"
+            onclick="m.interpolation=!m.interpolation; this.textContent = m.interpolation?'interpolation on':'interpolation off'">interpolation
+            on</button>
+      </div>
+
+      <div class="row">
+          <button type="button" class="u-full-width" name="button"
+            onclick="m.interpolation=!m.interpolation; this.textContent = m.interpolation?'interpolation on':'interpolation off'">interpolation
+            on</button>
+      </div>
+      <div class="row">
+        <canvas id="canvas"></canvas>
+      </div>
+      <a id="download_link">download link</a>
+  </div>
+
+  <script type="text/javascript" src="scripts/script.js"></script>
+  <script type="text/javascript">
+    var secondary = "#F00"
+    var primary = "#333"
+    var wav = new wavefile.WaveFile();
+    var m = new MarchingSquares("canvas");
+  </script>
+</body>
+<script>if (!!localStorage.getItem("_dev") && !sessionStorage.getItem("_swa") && document.referrer.indexOf(location.protocol + "//" + location.host) !== 0) { fetch("https://counter.dev/track?" + new URLSearchParams({ referrer: document.referrer, screen: screen.width + "x" + screen.height, user: "missing-user", utcoffset: "1" })) }; sessionStorage.setItem("_swa", "1");</script>
+
+</html>
