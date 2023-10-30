@@ -1,11 +1,8 @@
-
 class MarchingSquares {
 	constructor(canvasId, args = {}) {
 		this.main_canvas = document.getElementById(canvasId);
 		this.ctx = this.main_canvas.getContext("2d");
-		this.inputValues = juliaDataBig;
-		console.log("input values: ", JSON.stringify(this.inputValues));
-		this.gridValues = [];
+		this.inputValues = juliaDataMid; // juliaDataBig (1024x1024) juliaDataMid (512x512) or juliaData (256x256)
 		this.contour = [];
 		this.contourX = [];
 		this.contourY = [];
@@ -20,37 +17,27 @@ class MarchingSquares {
 		this.ctx.font = "1px Arial";
 		this.ctx.lineWidth = 1;
 
-		this.width = rect.width;
-		this.height = rect.height;
+		this.generateContour = (async () => {
+			await this.traceContour(this.startingPoint.x, this.startingPoint.y);
 
-		this.rez = 1; //Math.floor(this.main_canvas.height / this.inputValues.length) ?? 1;
-		console.log("Rez:", this.rez);
-		if ("interpolation" in args) this.interpolation = args.interpolation;
-		else this.interpolation = true;
+			let audioContext = new AudioContext();
+			let audioBuffer = audioContext.createBuffer(2, this.contourX.length, 44100);
+			let xArray = audioBuffer.getChannelData(0);
+			let yArray = audioBuffer.getChannelData(1);
+			for(let i = 0; i< this.contourX.length; i++){
+				xArray[i] = this.contourX[i];
+				yArray[i] = this.contourY[i];
+			}
 
-		this.generateAll = (async () => {
-				this.updateGridPoints();
-				this.drawLines();
-				await this.traceContour(this.startingPoint.x, this.startingPoint.y);
+			let src = audioContext.createBufferSource();
+			src.buffer = audioBuffer;
 
-				let audioContext = new AudioContext();
-				let audioBuffer = audioContext.createBuffer(2, this.contourX.length, 44100);
-				let xArray = audioBuffer.getChannelData(0);
-				let yArray = audioBuffer.getChannelData(1);
-				for(let i = 0; i< this.contourX.length; i++){
-					xArray[i] = this.contourX[i];
-					yArray[i] = this.contourY[i];
-				}
+			console.log('contour: ', JSON.stringify(this.contour));
+			console.log('stereo data audio buffer: ', src.buffer);
 
-				let src = audioContext.createBufferSource();
-				src.buffer = audioBuffer;
+			make_download(src.buffer, 44100 * audioBuffer.duration);
 
-				console.log('contour: ', JSON.stringify(this.contour));
-				console.log('stereo data audio buffer: ', src.buffer);
-
-				make_download(src.buffer, 44100 * audioBuffer.duration);
-
-			});
+		});
 
 		console.log(
 			"initialized MarchingSquares class for",
@@ -59,144 +46,26 @@ class MarchingSquares {
 			args
 		);
 
-		this.generateMap();
-		this.generateAll();
-	}
-
-	generateMap() {
-		this.gridValues = new Array(this.inputValues.length - 1);
-		for (var y = 0; y < this.gridValues.length; y++)
-			this.gridValues[y] = new Array(this.inputValues[0].length - 1);
-	}
-
-	updateGridPoints() {
-
-		for (var y = 0; y < this.gridValues.length; y++) {
-			for (var x = 0; x < this.gridValues[y].length; x++) {
-				this.gridValues[y][x] = binaryToType(
-					this.inputValues[y][x] > 0,
-					this.inputValues[y][x + 1] > 0,
-					this.inputValues[y + 1][x + 1] > 0,
-					this.inputValues[y + 1][x] > 0
-				);
-			}
-		}
+		this.generateContour();
 	}
 
 	line(from, to) {
-		this.ctx.moveTo(from[0], from[1]);
-		this.ctx.lineTo(to[0], to[1]);
-	}
-
-	drawLines() {
-		this.ctx.beginPath();
-		this.ctx.lineWidth = 1;
-		this.ctx.strokeStyle = secondary;
-		for (var y = 0; y < this.gridValues.length; y++) {
-			for (var x = 0; x < this.gridValues[y].length; x++) {
-				if (!this.interpolation) {
-					//abcd uninterpolated
-					var a = [x * this.rez + this.rez / 2, y * this.rez];
-					var b = [x * this.rez + this.rez, y * this.rez + this.rez / 2];
-					var c = [x * this.rez + this.rez / 2, y * this.rez + this.rez];
-					var d = [x * this.rez, y * this.rez + this.rez / 2];
-				} else {
-					//abcd interpolated
-					var nw = this.inputValues[y][x];
-					var ne = this.inputValues[y][x + 1];
-					var se = this.inputValues[y + 1][x + 1];
-					var sw = this.inputValues[y + 1][x];
-					var a = [x * this.rez + this.rez * lerp(1, nw, ne), y * this.rez];
-					var b = [
-						x * this.rez + this.rez,
-						y * this.rez + this.rez * lerp(1, ne, se)
-					];
-					var c = [
-						x * this.rez + this.rez * lerp(1, sw, se),
-						y * this.rez + this.rez
-					];
-					var d = [x * this.rez, y * this.rez + this.rez * lerp(1, nw, sw)];
-				}
-
-				switch (this.gridValues[y][x]) {
-					case 1:
-					case 14:
-						this.line(d, c);
-						break;
-
-					case 2:
-					case 13:
-						this.line(b, c);
-						break;
-
-					case 3:
-					case 12:
-						this.line(d, b);
-						break;
-
-					case 11:
-					case 4:
-						this.line(a, b);
-						break;
-
-					case 5:
-						this.line(d, a);
-						this.line(c, b);
-						break;
-					case 6:
-					case 9:
-						this.line(c, a);
-						break;
-
-					case 7:
-					case 8:
-						this.line(d, a);
-						break;
-
-					case 10:
-						this.line(a, b);
-						this.line(c, d);
-						break;
-					default:
-						break;
-				}
-			}
-		}
-		this.ctx.stroke();
+		this.ctx.moveTo(from.x, from.y);
+		this.ctx.lineTo(to.x, to.y);
 	}
 
 	traceContour(x, y) {
-	//	console.log('x: ', x, ' y: ', y);
-	/*
+		this.ctx.beginPath();
+		this.ctx.lineWidth = 1;
+		this.ctx.strokeStyle = "blue";
 
-	      A
-	   o --- o
-	D  |     |  B
-	   o --- o
-	      C
-
-	0000	0 - right but don't write, looking for a boundary
-	0001	1 DOWN: 	D -> C
-	0010	2 RIGHT: 	C -> B
-	0011	3 RIGHT: 	D -> B
-	0100	4 UP:			B -> A
-	0101	5 if (lastCoord === thisCoord.D)
-							then	UP: 	D -> A
-							else 	DOWN: B -> C		(lastCoord === thisCoord.B)
-	0110	6 UP:			C -> A
-	0111  7 UP:			D -> A
-	1000	8 LEFT:	  A -> D
-	1001	9 DOWN:		A -> C
-	1010	10 if (lastCoord === thisCoord.C)
-							then 	LEFT:		C -> D
-							else 	RIGHT:	A -> B	  (lastCoord === thisCoord.A)
-	1011	11 RIGHT:	A -> B
-	1100	12 LEFT:	B -> D
-	1101	13 DOWN:	B -> C
-	1110	14 LEFT:	C -> D
-	1111	15 - shouldn't happen...
-
-	 */
+		/*
+					A
+			 o --- o
+		D  |     |  B
+			 o --- o
+					C
+		 */
 
 			let a = { x: x + 0.5, y: y - 1};
 			let b = { x: x + 1, y: y - 0.5};
@@ -208,18 +77,12 @@ class MarchingSquares {
 			let left = { x: x - 1, y};
 			let right = { x: x + 1, y};
 
-		/*	console.log("nw ", this.inputValues[y][x],
-									"ne ", this.inputValues[y][x + 1],
-									"se ", this.inputValues[y + 1][x + 1],
-									"sw ", this.inputValues[y + 1][x]);*/
-
 			let squareType = binaryToType(   // nw, ne, se, sw
 					this.inputValues[y][x] === 0,
 					this.inputValues[y][x + 1] === 0,
 					this.inputValues[y + 1][x + 1] === 0,
 					this.inputValues[y + 1][x] === 0
 				);
-		//	console.log('squareType: ', squareType);
 
 			let pointToWrite = null;
 			let nextPoint = null;
@@ -229,18 +92,22 @@ class MarchingSquares {
 					nextPoint = right;
 					break;
 				case 1: // DOWN: 	D -> C
+					this.line(d, c);
 					pointToWrite = c;
 					nextPoint = down;
 					break;
 				case 2: // RIGHT: 	C -> B
+					this.line(c, b);
 					pointToWrite = b;
 					nextPoint = right;
 					break;
 				case 3: // RIGHT: 	D -> B
+					this.line(d, b);
 					pointToWrite = b;
 					nextPoint = right;
 					break;
 				case 4: // UP:			B -> A
+					this.line(b, a);
 					pointToWrite = a;
 					nextPoint = up;
 					break;
@@ -248,30 +115,36 @@ class MarchingSquares {
 											then	UP: 	D -> A
 											else 	DOWN: B -> C		(lastCoord === thisCoord.B)
 								*/
-				//	console.log("CASE 5: previous point: ", this.contour[this.contour.length-1]);
-				//	console.log("CASE 5: current d: ", d);
-			//		console.log("CASE 5: current b: ", b);
+								//	console.log("CASE 5: previous point: ", this.contour[this.contour.length-1]);
+								//	console.log("CASE 5: current d: ", d);
+								//	console.log("CASE 5: current b: ", b);
 					if(JSON.stringify(this.contour[this.contour.length-1]) === JSON.stringify(d)) {
+						this.line(d, a);
 						pointToWrite = a;
 						nextPoint = up;
 					} else if(JSON.stringify(this.contour[this.contour.length-1]) === JSON.stringify(b)) {
+						this.line(b, c);
 						pointToWrite = c;
 						nextPoint = down;
 					}
 					break;
 				case 6: // UP:			C -> A
+					this.line(c, a);
 					pointToWrite = a;
 					nextPoint = up;
 					break;
 				case 7: // UP:			D -> A
+					this.line(d, a);
 					pointToWrite = a;
 					nextPoint = up;
 					break;
 				case 8: // LEFT:	  A -> D
+					this.line(a, d);
 					pointToWrite = d;
 					nextPoint = left;
 					break;
 				case 9: // DOWN:		A -> C
+					this.line(a, c);
 					pointToWrite = c;
 					nextPoint = down;
 					break;
@@ -279,30 +152,36 @@ class MarchingSquares {
 											then 	LEFT:		C -> D
 											else 	RIGHT:	A -> B	  (lastCoord === thisCoord.A)
 								*/
-				//	console.log("CASE 10: previous point: ", this.contour[this.contour.length-1]);
-				//	console.log("CASE 10: current c: ", c);
-			//		console.log("CASE 10: current a: ", a);
+								//	console.log("CASE 10: previous point: ", this.contour[this.contour.length-1]);
+								//	console.log("CASE 10: current c: ", c);
+								//	console.log("CASE 10: current a: ", a);
 					if(JSON.stringify(this.contour[this.contour.length-1]) === JSON.stringify(c)) {
+						this.line(c, d);
 						pointToWrite	= d;
 						nextPoint = left;
 					} else if(JSON.stringify(this.contour[this.contour.length-1]) === JSON.stringify(a)) {
+						this.line(a, b);
 						pointToWrite = b;
 						nextPoint = right;
 					}
 					break;
 				case 11: // RIGHT:	A -> B
+					this.line(a, b);
 					pointToWrite = b;
 					nextPoint = right;
 					break;
 				case 12: // LEFT:	B -> D
+					this.line(b, d);
 					pointToWrite = d;
 					nextPoint = left;
 					break;
 				case 13: // DOWN:	B -> C
+					this.line(b, c);
 					pointToWrite = c;
 					nextPoint = down;
 					break;
 				case 14: // LEFT:	C -> D
+					this.line(c, d);
 					pointToWrite = d;
 					nextPoint = left;
 					break;
@@ -313,7 +192,6 @@ class MarchingSquares {
 					break;
 			}
 			if (nextPoint.y > this.inputValues.length || nextPoint.x > this.inputValues[0].length || nextPoint.x < 0 || nextPoint.y < 0) return;
-			console.log("point to write", pointToWrite);
 			if(JSON.stringify(pointToWrite) === JSON.stringify(this.contour[0])) return;
 			if (pointToWrite !== null) {
 				this.contour.push(pointToWrite);
@@ -321,17 +199,10 @@ class MarchingSquares {
 				this.contourX.push(newX);
 				let newY = (pointToWrite.y / (this.inputValues.length / 2)) - 1.0;
 				this.contourY.push(newY);
+				this.ctx.stroke();
 			}
-				this.traceContour(nextPoint.x, nextPoint.y);
+			this.traceContour(nextPoint.x, nextPoint.y);
 		}
-}
-
-function lerp(x, x0, x1, y0 = 0, y1 = 1) {
-	if (x0 === x1) {
-		return null;
-	}
-
-	return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
 }
 
 function binaryToType(nw, ne, se, sw) {
@@ -340,7 +211,7 @@ function binaryToType(nw, ne, se, sw) {
 }
 
 function bufferToWave(abuffer, len) {
-  var numOfChan = abuffer.numberOfChannels,
+  let numOfChan = abuffer.numberOfChannels,
       length = len * numOfChan * 2 + 44,
       buffer = new ArrayBuffer(length),
       view = new DataView(buffer),
@@ -394,12 +265,11 @@ function bufferToWave(abuffer, len) {
 }
 
 function make_download(abuffer, total_samples) {
-
-	var new_file = URL.createObjectURL(bufferToWave(abuffer, total_samples));
-
-	var download_link = document.getElementById("download_link");
+	let new_file = URL.createObjectURL(bufferToWave(abuffer, total_samples));
+	let download_link = document.getElementById("download_link");
 	download_link.href = new_file;
-	var name = 'dufus-' + new Date().toISOString() + '.wav';
+	let name = 'julia-contour-' + new Date().toISOString() + '.wav';
 	download_link.download = name;
-
 }
+
+new MarchingSquares("canvas");
